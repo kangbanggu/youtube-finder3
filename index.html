@@ -1,98 +1,136 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTube 벤치마킹 검색기</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Finder</title>
   <style>
-    body { font-family: 'Noto Sans KR', sans-serif; background: #f5f7fa; margin: 0; padding: 20px; }
-    h1 { text-align: center; color: #333; }
-    .filter-box { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 20px; }
-    input, select, button { padding: 10px; border-radius: 6px; border: 1px solid #ccc; width: 100%; font-size: 15px; }
-    button { background-color: #ff4b4b; color: #fff; border: none; cursor: pointer; transition: 0.3s; }
-    button:hover { background-color: #e63c3c; }
-    #results { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 15px; }
-    .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); padding: 15px; }
-    .thumb { width: 100%; border-radius: 8px; }
-    .title { font-weight: bold; margin: 8px 0; color: #222; }
-    .meta { font-size: 14px; color: #555; }
-    .efficiency { font-weight: bold; color: #007700; }
+    body {
+      font-family: "Noto Sans KR", sans-serif;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 20px;
+      color: #222;
+    }
+    h1 {
+      text-align: center;
+    }
+    .search-box {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    input {
+      width: 60%;
+      padding: 10px;
+      font-size: 16px;
+    }
+    button {
+      padding: 10px 15px;
+      margin-left: 10px;
+      background-color: #cc0000;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    .section {
+      margin-top: 40px;
+    }
+    .videos {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 20px;
+    }
+    .video {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      transition: transform 0.2s;
+    }
+    .video:hover {
+      transform: scale(1.02);
+    }
+    iframe {
+      width: 100%;
+      height: 180px;
+      border: none;
+    }
+    p {
+      padding: 10px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
-  <h1>📊 유튜브 벤치마킹 검색기</h1>
-  <div class="filter-box">
-    <input type="text" id="search" placeholder="검색어 입력 (예: 복지, 건강, 패션)">
-    <select id="type">
-      <option value="any">모두</option>
-      <option value="video">동영상</option>
-      <option value="shorts">쇼츠</option>
-      <option value="channel">채널</option>
-      <option value="live">라이브</option>
-    </select>
-    <select id="date">
-      <option value="any">기간 전체</option>
-      <option value="today">오늘</option>
-      <option value="week">최근 1주</option>
-      <option value="month">이번 달</option>
-      <option value="3months">3개월 이내</option>
-      <option value="6months">6개월 이내</option>
-      <option value="year">올해</option>
-    </select>
-    <input type="number" id="minSubs" placeholder="최소 구독자 수">
-    <input type="number" id="maxSubs" placeholder="최대 구독자 수">
-    <input type="number" id="minViews" placeholder="최소 조회수">
-    <input type="number" id="maxViews" placeholder="최대 조회수">
-    <button id="searchBtn">검색하기</button>
+  <h1>YouTube Finder</h1>
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="검색어를 입력하세요..." />
+    <button onclick="searchYouTube()">검색</button>
   </div>
 
-  <div id="results"></div>
+  <div class="section" id="shorts-section">
+    <h2>🎬 쇼츠 (4분 미만)</h2>
+    <div id="shortsResults" class="videos"></div>
+  </div>
+
+  <div class="section" id="videos-section">
+    <h2>📺 일반 동영상 (5분 이상)</h2>
+    <div id="videosResults" class="videos"></div>
+  </div>
 
   <script>
-    const API_KEY = "AIzaSyBMA6UbKczjPJkqExjd4_evvq3nUz-Agi8";
+    const API_KEY = "YOUR_API_KEY_HERE"; // ← 여기에 본인 키 입력
 
-    document.getElementById('searchBtn').addEventListener('click', async () => {
-      const q = document.getElementById('search').value;
-      const type = document.getElementById('type').value;
-      const minSubs = +document.getElementById('minSubs').value || 0;
-      const maxSubs = +document.getElementById('maxSubs').value || Infinity;
-      const minViews = +document.getElementById('minViews').value || 0;
-      const maxViews = +document.getElementById('maxViews').value || Infinity;
-
-      let resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = "검색 중입니다...";
-
-      const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=${type === 'any' ? 'video,channel' : type}&q=${encodeURIComponent(q)}&maxResults=10&key=${API_KEY}`);
-      const data = await res.json();
-
-      resultsDiv.innerHTML = "";
-      for (let item of data.items) {
-        const videoId = item.id.videoId || "";
-        const channelId = item.snippet.channelId;
-        const channelRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${API_KEY}`);
-        const channelData = await channelRes.json();
-        const stats = channelData.items[0]?.statistics;
-        const subCount = +stats?.subscriberCount || 0;
-        const viewCount = +stats?.viewCount || 0;
-        const efficiency = subCount > 0 ? (viewCount / subCount).toFixed(2) : 0;
-
-        if (subCount < minSubs || subCount > maxSubs || viewCount < minViews || viewCount > maxViews) continue;
-
-        const card = `
-          <div class="card">
-            <img class="thumb" src="${item.snippet.thumbnails.high.url}" alt="썸네일">
-            <div class="title">${item.snippet.title}</div>
-            <div class="meta">채널: ${item.snippet.channelTitle}</div>
-            <div class="meta">구독자: ${subCount.toLocaleString()} | 조회수: ${viewCount.toLocaleString()}</div>
-            <div class="efficiency">조회 효율: ${efficiency}</div>
-            <a href="https://www.youtube.com/watch?v=${videoId}" target="_blank">영상 보러가기</a>
-          </div>
-        `;
-        resultsDiv.innerHTML += card;
+    async function searchYouTube() {
+      const query = document.getElementById("searchInput").value.trim();
+      if (!query) {
+        alert("검색어를 입력하세요!");
+        return;
       }
 
-      if (resultsDiv.innerHTML === "") resultsDiv.innerHTML = "조건에 맞는 결과가 없습니다.";
-    });
-  </script>
-</body>
-</html>
+      document.getElementById("shortsResults").innerHTML = "";
+      document.getElementById("videosResults").innerHTML = "";
+
+      // 1️⃣ 먼저 검색으로 영상 ID 목록 받기
+      const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=20&q=${encodeURIComponent(query)}&key=${API_KEY}`;
+      const searchRes = await fetch(searchUrl);
+      const searchData = await searchRes.json();
+
+      const videoIds = searchData.items.map((item) => item.id.videoId).join(",");
+      if (!videoIds) {
+        alert("결과가 없습니다.");
+        return;
+      }
+
+      // 2️⃣ 각 영상의 길이(duration) 불러오기
+      const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoIds}&key=${API_KEY}`;
+      const detailsRes = await fetch(detailsUrl);
+      const detailsData = await detailsRes.json();
+
+      // 3️⃣ 시간 기준으로 분류
+      const shorts = [];
+      const longVideos = [];
+
+      detailsData.items.forEach((video) => {
+        const duration = video.contentDetails.duration;
+        const minutes = parseYouTubeDuration(duration);
+
+        if (minutes < 4) {
+          shorts.push(video);
+        } else if (minutes >= 5) {
+          longVideos.push(video);
+        }
+      });
+
+      // 4️⃣ 결과 표시
+      displayVideos(shorts, "shortsResults");
+      displayVideos(longVideos, "videosResults");
+    }
+
+    function parseYouTubeDuration(duration) {
+      const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+      const hours = parseInt(match[1]) || 0;
+      const minutes
